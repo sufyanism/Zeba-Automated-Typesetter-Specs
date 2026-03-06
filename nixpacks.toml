@@ -2,4 +2,4 @@
 nixPkgs = ["typst"]
 
 [start]
-cmd = "streamlit run app.py --server.port=$PORT --server.address=0.0.0.0"
+cmd = "streamlit run Script.py --server.port=$PORT --server.address=0.0.0.0"
