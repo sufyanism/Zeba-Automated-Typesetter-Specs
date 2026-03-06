@@ -1,3 +1,2 @@
 streamlit
-mammoth
-typst
+python-docx
