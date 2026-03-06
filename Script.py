@@ -6,74 +6,79 @@ import re
 import tempfile
 import shutil
 
-# Typst template path
+# Template path
 TEMPLATE = "templates/scholarly.typ"
 
 
 # -----------------------------
-# Check if Typst is installed
+# Check Typst installation
 # -----------------------------
 def check_typst():
 
     if shutil.which("typst") is None:
-        st.error("Typst is not installed on this server.")
+        st.error("❌ Typst is not installed on this server.")
         st.stop()
 
-    # Show Typst version
-    version = subprocess.run(
+    result = subprocess.run(
         ["typst", "--version"],
         capture_output=True,
         text=True
     )
 
-    st.info(f"Typst detected: {version.stdout}")
+    st.success(f"Typst detected: {result.stdout.strip()}")
 
 
 # -----------------------------
-# Parse DOCX file
+# Parse DOCX
 # -----------------------------
 def parse_docx(file):
+
     doc = Document(file)
-    text = []
+    paragraphs = []
 
     for para in doc.paragraphs:
-        if para.text.strip():
-            text.append(para.text.strip())
 
-    return "\n\n".join(text)
+        text = para.text.strip()
+
+        if text:
+            paragraphs.append(text)
+
+    return "\n\n".join(paragraphs)
 
 
 # -----------------------------
-# Clean characters for Typst
+# Sanitize text for Typst
 # -----------------------------
 def sanitize_text(text):
+
     text = re.sub(r'#', r'\\#', text)
     text = re.sub(r'\{', r'\\{', text)
     text = re.sub(r'\}', r'\\}', text)
+
     return text
 
 
 # -----------------------------
-# Inject manuscript into template
+# Create Typst file
 # -----------------------------
-def inject_template(manuscript, temp_typ):
+def create_typst_file(content, typ_path):
 
     with open(TEMPLATE, "r", encoding="utf-8") as f:
         template = f.read()
 
-    final = template.replace("{{MANUSCRIPT_CONTENT}}", manuscript)
+    final = template.replace("{{MANUSCRIPT_CONTENT}}", content)
 
-    with open(temp_typ, "w", encoding="utf-8") as f:
+    with open(typ_path, "w", encoding="utf-8") as f:
         f.write(final)
 
 
 # -----------------------------
-# Compile Typst → PDF
+# Compile PDF
 # -----------------------------
-def compile_pdf(temp_typ, temp_pdf):
+def compile_pdf(typ_path, pdf_path):
 
     result = subprocess.run(
-        ["typst", "compile", temp_typ, temp_pdf],
+        ["typst", "compile", typ_path, pdf_path],
         capture_output=True,
         text=True
     )
@@ -89,12 +94,15 @@ def compile_pdf(temp_typ, temp_pdf):
 # Streamlit UI
 # -----------------------------
 st.title("Automated Typesetter")
-st.write("Upload a DOCX manuscript and generate a print-ready PDF.")
 
-# Check Typst installation
+st.write(
+    "Upload a DOCX manuscript and generate a print-ready PDF using Typst."
+)
+
+# Verify Typst
 check_typst()
 
-uploaded_file = st.file_uploader("Upload DOCX File", type=["docx"])
+uploaded_file = st.file_uploader("Upload DOCX file", type=["docx"])
 
 
 if uploaded_file:
@@ -103,34 +111,34 @@ if uploaded_file:
 
         st.info("Processing manuscript...")
 
-        # parse docx
-        text = parse_docx(uploaded_file)
+        # Step 1: Parse DOCX
+        manuscript = parse_docx(uploaded_file)
 
-        # clean characters
-        clean_text = sanitize_text(text)
+        # Step 2: Clean characters
+        manuscript = sanitize_text(manuscript)
 
-        # create temporary working folder
+        # Step 3: Temporary working directory
         with tempfile.TemporaryDirectory() as temp_dir:
 
-            temp_typ = os.path.join(temp_dir, "book.typ")
-            temp_pdf = os.path.join(temp_dir, "book.pdf")
+            typ_file = os.path.join(temp_dir, "book.typ")
+            pdf_file = os.path.join(temp_dir, "book.pdf")
 
-            # create typst file
-            inject_template(clean_text, temp_typ)
+            # Step 4: Create Typst file
+            create_typst_file(manuscript, typ_file)
 
-            # compile pdf
-            success = compile_pdf(temp_typ, temp_pdf)
+            # Step 5: Compile PDF
+            success = compile_pdf(typ_file, pdf_file)
 
-            if success and os.path.exists(temp_pdf):
+            if success and os.path.exists(pdf_file):
 
                 st.success("PDF generated successfully!")
 
-                with open(temp_pdf, "rb") as f:
+                with open(pdf_file, "rb") as f:
 
                     st.download_button(
-                        label="Download Typeset PDF",
+                        label="Download PDF",
                         data=f,
-                        file_name="typeset_output.pdf",
+                        file_name="typeset_book.pdf",
                         mime="application/pdf"
                     )
 
